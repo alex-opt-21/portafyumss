@@ -25,5 +25,5 @@ class Usuario extends Authenticatable
         'password',
     ];
 
-    public $timestamps = false;
+    public $timestamps = true;
 }
