@@ -6,10 +6,11 @@ use App\Models\Profile;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
+
 class ProfileController extends Controller
 {
 
-    public function storeOrUpdate(Request $request)
+    /* public function storeOrUpdate(Request $request)
     {
         try {
             $usuario = $request->user();
@@ -41,8 +42,59 @@ class ProfileController extends Controller
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
         }
     }
+ */
 
-    public function show(Request $request)
+    public function storeOrUpdate(Request $request)
+{
+    try {
+        $usuario = $request->user();
+
+        // Actualizar nombre y apellido en tabla 'usuarios'
+        $datosUsuario = [];
+        if ($request->filled('nombre'))
+            $datosUsuario['nombre'] = $request->nombre;
+        if ($request->filled('apellido'))
+            $datosUsuario['apellido'] = $request->apellido;
+
+        if (!empty($datosUsuario)) {
+            $usuario->update($datosUsuario);
+        }
+
+        // Actualizar campos de perfil en tabla 'profile'
+        $datosPerfil = [];
+        if ($request->filled('biografia'))
+            $datosPerfil['biografia'] = $request->biografia;
+        if ($request->filled('universidad'))
+            $datosPerfil['universidad'] = $request->universidad;
+        if ($request->filled('carrera'))
+            $datosPerfil['carrera'] = $request->carrera;
+        if ($request->filled('ubicacion'))
+            $datosPerfil['ubicacion'] = $request->ubicacion;
+
+        if ($request->hasFile('foto_perfil')) {
+            $datosPerfil['foto_perfil'] = $request->file('foto_perfil')
+                ->store('fotos_perfil', 'public');
+        }
+
+        $perfil = Profile::updateOrCreate(
+            ['usuario_id' => $usuario->id],
+            $datosPerfil
+        );
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => array_merge($datosUsuario, $datosPerfil)
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json([
+            'status'  => 'error',
+            'message' => $e->getMessage()
+        ], 500);
+    }
+}
+
+    /* public function show(Request $request)
     {
         // Usamos el ID del usuario que viene en el Token
         $perfil = \App\Models\Profile::where('usuario_id', $request->user()->id)->first();
@@ -59,7 +111,25 @@ class ProfileController extends Controller
         }
 
         return response()->json($perfil);
-    }
+    } */
+
+    public function show(Request $request)
+{
+    $usuario = $request->user();
+    $perfil = Profile::where('usuario_id', $usuario->id)->first();
+
+    return response()->json([
+        'nombre'    => $usuario->nombre,
+        'apellido'  => $usuario->apellido,
+        'email'     => $usuario->email,
+        'biografia' => $perfil->biografia ?? '',
+        'universidad' => $perfil->universidad ?? '',
+        'carrera'   => $perfil->carrera ?? '',
+        'ubicacion' => $perfil->ubicacion ?? '',
+        'foto_perfil' => $perfil->foto_perfil ?? '',
+        'perfil_completado' => $perfil->perfil_completado ?? 0,
+    ]);
+}
 
     public function completar(Request $request)
     {
