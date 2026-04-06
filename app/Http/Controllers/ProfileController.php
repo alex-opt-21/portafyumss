@@ -96,17 +96,22 @@ class ProfileController extends Controller
     {
         try {
             $usuario = $request->user();
+$datos = [];
 
-            $datos = $request->only(['biografia', 'ubicacion']);
+            if ($request->filled('biografia'))
+                $datos['biografia'] = $request->biografia;
 
+            if ($request->filled('ubicacion'))
+                $datos['ubicacion'] = $request->ubicacion;
+
+            // foto perfil
             if ($request->hasFile('foto_perfil')) {
                 $datos['foto_perfil'] = $request->file('foto_perfil')->store('fotos_perfil', 'public');
             }
 
-            $datos['perfil_completado'] = true;
-            $datos['estado'] = 'activo'; // Campo nuevo en tu BD
+            $datos['perfil_completado'] = 1;
 
-            // Guardar directamente en la tabla 'usuarios'
+            // guarda en usuarios
             $usuario->update($datos);
 
             return response()->json([
@@ -118,6 +123,7 @@ class ProfileController extends Controller
             ], 500);
         }
     }
+
     public function crearPerfilProfesional(Request $request)
 {
     try {

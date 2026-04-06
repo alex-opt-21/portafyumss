@@ -21,6 +21,10 @@ class Usuario extends Authenticatable
         'rol',
         'provider',
         'provider_id',
+        'password',
+
+        /////
+
         'biografia',
         'fecha_nacimiento',
         'ubicacion',
@@ -65,8 +69,4 @@ class Usuario extends Authenticatable
     }
 
     public $timestamps = true;
-    /*public function profile()
-    {
-        return $this->hasOne(Profile::class, 'usuario_id');
-    }*/
 }
