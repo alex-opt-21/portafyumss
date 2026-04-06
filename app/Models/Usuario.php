@@ -5,11 +5,9 @@ namespace App\Models;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Notifications\Notifiable;
-use App\Models\Profile;
 
 class Usuario extends Authenticatable
 {
-    use HasApiTokens;
     use HasApiTokens, Notifiable;
 
     protected $table = 'usuarios';
@@ -29,6 +27,13 @@ class Usuario extends Authenticatable
     ];
 
     public $timestamps = true;
+
+    // 🔹 RELACIÓN NECESARIA PARA LA BÚSQUEDA
+    public function habilidades()
+    {
+        return $this->hasMany(\App\Models\Habilidad::class, 'usuario_id');
+    }
+
     /*public function profile()
     {
         return $this->hasOne(Profile::class, 'usuario_id');
