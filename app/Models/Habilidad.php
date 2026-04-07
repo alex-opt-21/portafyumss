@@ -1,7 +1,5 @@
 <?php
-
 namespace App\Models;
-
 use Illuminate\Database\Eloquent\Model;
 
 class Habilidad extends Model
@@ -16,9 +14,10 @@ class Habilidad extends Model
         'tipo',
         'nivel_cuantitativo',
         'nivel_cualitativo',
+        'descripcion',
+        'categoría'
     ];
 
-    // 🔹 Relación inversa (opcional pero recomendable)
     public function usuario()
     {
         return $this->belongsTo(Usuario::class, 'usuario_id');
