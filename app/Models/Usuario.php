@@ -71,4 +71,8 @@ class Usuario extends Authenticatable
         return $this->hasMany(FormacionAcademica::class, 'usuario_id');
     }
 
+    public function proyectos()
+    {
+        return $this->hasMany(\App\Models\Proyecto::class, 'usuario_id');
+    }
 }

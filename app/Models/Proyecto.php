@@ -18,9 +18,11 @@ class Proyecto extends Model
         'imagen',
         'estado',
     ];
+    // 🔹 Relación: un proyecto pertenece a un usuario
 
     public function usuario()
     {
         return $this->belongsTo(Usuario::class, 'usuario_id');
     }
 }
+
