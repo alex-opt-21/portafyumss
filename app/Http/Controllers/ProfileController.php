@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Profile;
 use App\Models\Usuario;
 use Illuminate\Http\Request;
+use App\Models\Proyecto;
 
 class ProfileController extends Controller
 {
@@ -180,6 +181,8 @@ class ProfileController extends Controller
         }
     }
 
+
+
     // 🔍 BÚSQUEDA DE USUARIOS
     public function searchUsers(Request $request)
     {
@@ -249,5 +252,190 @@ class ProfileController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    public function search(Request $request)
+    {
+        try {
+            $query = trim($request->query('q', ''));
+            $category = $request->query('category', 'usuario');
+            $filter = $request->query('filter', 'nombre');
+
+            if ($query === '') {
+                return response()->json([]);
+            }
+
+            switch ($category) {
+
+                case 'usuario':
+                    return $this->searchUsuarios($query, $filter);
+
+                case 'proyecto':
+                    return $this->searchUsuariosPorProyecto($query, $filter);
+
+                case 'habilidad':
+                    return $this->searchUsuariosPorHabilidad($query, $filter);
+                default:
+                    return response()->json([]);
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'message' => 'Error en búsqueda',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    private function searchUsuariosPorHabilidad($query, $filter)
+    {
+        // 1. Buscar en tabla habilidades
+        $habilidadesQuery = \App\Models\Habilidad::query();
+
+        switch ($filter) {
+
+            // 🔹 Buscar por nombre (cualquier tipo)
+            case 'nombre':
+                $habilidadesQuery->where('nombre', 'LIKE', "%{$query}%");
+                break;
+
+            // 🔹 Solo técnicas
+            case 'tecnica':
+                $habilidadesQuery->where('tipo', 'tecnica')
+                    ->where('nombre', 'LIKE', "%{$query}%");
+                break;
+
+            // 🔹 Solo blandas
+            case 'blanda':
+                $habilidadesQuery->where('tipo', 'blanda')
+                    ->where('nombre', 'LIKE', "%{$query}%");
+                break;
+        }
+
+        // 2. Obtener IDs de usuarios SIN duplicados
+        $usuarioIds = $habilidadesQuery
+            ->pluck('usuario_id')
+            ->unique();
+
+        // 3. Buscar usuarios
+        $usuarios = Usuario::whereIn('id', $usuarioIds)
+            ->with('habilidades')
+            ->limit(20)
+            ->get();
+
+        // 4. Formato estándar (MUY IMPORTANTE)
+        return response()->json(
+            $usuarios->map(function ($user) {
+                return [
+                    'id' => $user->id,
+                    'name' => $user->nombre,
+                    'lastName' => $user->apellido,
+                    'photo' => $user->foto_perfil,
+                    'bio' => $user->biografia,
+                    'skills' => $user->habilidades->pluck('nombre')->values(),
+                ];
+            })
+        );
+    }
+
+    private function searchUsuarios($query, $filter)
+    {
+        $usuariosQuery = Usuario::query();
+
+        switch ($filter) {
+
+            // 🔹 Nombre y apellido
+            case 'nombre':
+                $words = preg_split('/\s+/', trim($query));
+
+                if (count($words) === 1) {
+                    $term = $words[0];
+
+                    $usuariosQuery->where(function ($q) use ($term) {
+                        $q->where('nombre', 'LIKE', "%{$term}%")
+                            ->orWhere('apellido', 'LIKE', "%{$term}%");
+                    });
+                } else {
+                    $nombre = array_shift($words);
+                    $apellido = implode(' ', $words);
+
+                    $usuariosQuery->where('nombre', 'LIKE', "%{$nombre}%")
+                        ->where('apellido', 'LIKE', "%{$apellido}%");
+                }
+                break;
+
+            // 🔹 Biografía
+            case 'bio':
+                $usuariosQuery->where('biografia', 'LIKE', "%{$query}%");
+                break;
+
+            // 🔹 Ubicación
+            case 'ubicacion':
+                $usuariosQuery->where('ubicacion', 'LIKE', "%{$query}%");
+                break;
+        }
+
+        $usuarios = $usuariosQuery
+            ->with('habilidades')
+            ->limit(20)
+            ->get();
+
+        return response()->json(
+            $usuarios->map(function ($user) {
+                return [
+                    'id' => $user->id,
+                    'name' => $user->nombre,
+                    'lastName' => $user->apellido,
+                    'photo' => $user->foto_perfil,
+                    'bio' => $user->biografia,
+                    'skills' => $user->habilidades->pluck('nombre')->values(),
+                ];
+            })
+        );
+    }
+
+    private function searchUsuariosPorProyecto($query, $filter)
+    {
+        // 1. Buscar proyectos
+        $proyectosQuery = Proyecto::query();
+
+        switch ($filter) {
+
+            case 'nombre': // título del proyecto
+                $proyectosQuery->where('titulo', 'LIKE', "%{$query}%");
+                break;
+
+            case 'tecnologia':
+                $proyectosQuery->where('tecnologias', 'LIKE', "%{$query}%");
+                break;
+
+            case 'descripcion':
+                $proyectosQuery->where('descripcion', 'LIKE', "%{$query}%");
+                break;
+        }
+
+        // 2. Obtener IDs de usuarios SIN duplicados
+        $usuarioIds = $proyectosQuery
+            ->pluck('usuario_id')
+            ->unique();
+
+        // 3. Buscar usuarios con esos IDs
+        $usuarios = Usuario::whereIn('id', $usuarioIds)
+            ->with('habilidades')
+            ->limit(20)
+            ->get();
+
+        // 4. Formato igual que SIEMPRE (IMPORTANTE)
+        return response()->json(
+            $usuarios->map(function ($user) {
+                return [
+                    'id' => $user->id,
+                    'name' => $user->nombre,
+                    'lastName' => $user->apellido,
+                    'photo' => $user->foto_perfil,
+                    'bio' => $user->biografia,
+                    'skills' => $user->habilidades->pluck('nombre')->values(),
+                ];
+            })
+        );
     }
 }
