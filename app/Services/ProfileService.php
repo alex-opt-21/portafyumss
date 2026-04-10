@@ -20,7 +20,9 @@ class ProfileService
     public function show(Usuario $usuario): array
     {
         $legacyProfile = $this->getLegacyProfile($usuario->id);
-        $socials = Social::forUser($usuario->id)->get()->keyBy('nombre_plataforma');
+        $socials = $usuario->relationLoaded('sociales')
+            ? $usuario->sociales->keyBy('nombre_plataforma')
+            : Social::forUser($usuario->id)->get()->keyBy('nombre_plataforma');
 
         $fotoPerfilPath = $usuario->foto_perfil ?: ($legacyProfile->foto_perfil ?? '');
         $fotoPortadaPath = $usuario->foto_portada ?? '';

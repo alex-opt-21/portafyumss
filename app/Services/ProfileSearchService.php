@@ -202,7 +202,7 @@ class ProfileSearchService
         return Usuario::query()
             ->select(['id', 'nombre', 'apellido', 'foto_perfil', 'biografia', 'ubicacion'])
             ->with([
-                'habilidades' => fn (Builder $query) => $query
+                'habilidades' => fn ($query) => $query
                     ->select(['id', 'usuario_id', 'nombre'])
                     ->orderBy('nombre'),
             ]);
