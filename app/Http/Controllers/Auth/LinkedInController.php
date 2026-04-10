@@ -12,13 +12,18 @@ class LinkedInController extends Controller
 
     public function redirect()
     {
-        return Socialite::driver('linkedin-openid')->redirect();
+        return Socialite::driver('linkedin-openid')
+            ->stateless()
+            ->scopes(['openid', 'profile', 'email'])
+            ->redirect();
     }
 
     public function callback()
     {
         try {
-            $linkedinUser = Socialite::driver('linkedin-openid')->user();
+            $linkedinUser = Socialite::driver('linkedin-openid')
+                ->stateless()
+                ->user();
 
             $user = $this->oAuthUserService->resolveOrCreateUser(
                 'linkedin',
@@ -30,12 +35,18 @@ class LinkedInController extends Controller
 
             $token = $this->oAuthUserService->issueToken($user);
 
-            return view('linkedin-callback', [
-                'token' => $token,
-                'user' => $user,
-            ]);
+            return response()
+                ->view('linkedin-callback', [
+                    'token' => $token,
+                    'user' => $user,
+                ])
+                ->header('Cross-Origin-Opener-Policy', 'same-origin-allow-popups')
+                ->header('Cross-Origin-Embedder-Policy', 'unsafe-none');
         } catch (\Exception $e) {
-            return view('linkedin-callback', ['error' => $e->getMessage()]);
+            return response()
+                ->view('linkedin-callback', ['error' => $e->getMessage()])
+                ->header('Cross-Origin-Opener-Policy', 'same-origin-allow-popups')
+                ->header('Cross-Origin-Embedder-Policy', 'unsafe-none');
         }
     }
 }

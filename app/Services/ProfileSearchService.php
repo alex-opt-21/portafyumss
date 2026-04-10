@@ -2,8 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\Experience;
+use App\Models\FormacionAcademica;
 use App\Models\Usuario;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Schema;
 
 class ProfileSearchService
 {
@@ -102,26 +105,28 @@ class ProfileSearchService
     private function searchUsuariosPorExperiencia(string $query, string $filter): array
     {
         $usersQuery = $this->baseUserQuery();
+        $table = (new Experience())->getTable();
 
-        $usersQuery->whereHas('experiences', function (Builder $experienceQuery) use ($query, $filter) {
+        $usersQuery->whereHas('experiences', function (Builder $experienceQuery) use ($query, $filter, $table) {
             switch ($filter) {
                 case 'empresa':
-                    $experienceQuery->where('company', 'LIKE', "%{$query}%");
+                    $experienceQuery->where(
+                        Schema::hasColumn($table, 'empresa') ? 'empresa' : 'company',
+                        'LIKE',
+                        "%{$query}%"
+                    );
                     break;
-                case 'academica':
-                    $experienceQuery->where('tipo', 'academica')
-                        ->where(function (Builder $innerQuery) use ($query) {
-                            $innerQuery->where('title', 'LIKE', "%{$query}%")
-                                ->orWhere('descripcion', 'LIKE', "%{$query}%");
-                        });
+                case 'descripcion':
+                    $experienceQuery->where('descripcion', 'LIKE', "%{$query}%");
                     break;
+                case 'cargo':
                 case 'laboral':
                 default:
-                    $experienceQuery->where('tipo', 'laboral')
-                        ->where(function (Builder $innerQuery) use ($query) {
-                            $innerQuery->where('title', 'LIKE', "%{$query}%")
-                                ->orWhere('descripcion', 'LIKE', "%{$query}%");
-                        });
+                    $experienceQuery->where(
+                        Schema::hasColumn($table, 'cargo') ? 'cargo' : 'title',
+                        'LIKE',
+                        "%{$query}%"
+                    );
                     break;
             }
         });
@@ -156,18 +161,27 @@ class ProfileSearchService
     private function searchUsuariosPorFormacion(string $query, string $filter): array
     {
         $usersQuery = $this->baseUserQuery();
+        $table = (new FormacionAcademica())->getTable();
 
-        $usersQuery->whereHas('formacionAcademica', function (Builder $educationQuery) use ($query, $filter) {
+        $usersQuery->whereHas('formacionAcademica', function (Builder $educationQuery) use ($query, $filter, $table) {
             switch ($filter) {
                 case 'universidad':
                     $educationQuery->where('institucion', 'LIKE', "%{$query}%");
                     break;
                 case 'carrera':
-                    $educationQuery->where('nombre_carrera', 'LIKE', "%{$query}%");
+                    $educationQuery->where(
+                        Schema::hasColumn($table, 'nombre_programa') ? 'nombre_programa' : 'nombre_carrera',
+                        'LIKE',
+                        "%{$query}%"
+                    );
                     break;
                 case 'nivel':
                 default:
-                    $educationQuery->where('tipo_formacion', 'LIKE', "%{$query}%");
+                    $educationQuery->where(
+                        Schema::hasColumn($table, 'nivel_formacion') ? 'nivel_formacion' : 'tipo_formacion',
+                        'LIKE',
+                        "%{$query}%"
+                    );
                     break;
             }
         });

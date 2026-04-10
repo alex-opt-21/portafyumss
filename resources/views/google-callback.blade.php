@@ -1,23 +1,29 @@
 <!DOCTYPE html>
 <html>
 <body>
+@php
+  $payload = isset($error)
+    ? ['type' => 'GOOGLE_AUTH_ERROR', 'error' => $error]
+    : ['type' => 'GOOGLE_AUTH_SUCCESS', 'token' => $token, 'user' => $user];
+@endphp
 <script>
-  @if(isset($error))
-    window.opener?.postMessage(
-      { type: 'GOOGLE_AUTH_ERROR', error: '{{ $error }}' },
-      '{{ config("app.frontend_url") }}'
-    );
-  @else
-    window.opener?.postMessage(
-      {
-        type: 'GOOGLE_AUTH_SUCCESS',
-        token: '{{ $token }}',
-        user: @json($user)
-      },
-      '{{ config("app.frontend_url") }}'
-    );
-  @endif
-  window.close();
+  const payload = @json($payload);
+  const frontendUrl = String(@json(config('app.frontend_url')) || "").replace(/\/+$/, "");
+  const callbackUrl = frontendUrl
+    ? `${frontendUrl}/auth/popup-callback#payload=${encodeURIComponent(JSON.stringify(payload))}`
+    : "";
+
+  try {
+    if (callbackUrl) {
+      window.location.replace(callbackUrl);
+    }
+  } finally {
+    if (!callbackUrl) {
+      window.setTimeout(() => {
+        window.close();
+      }, 150);
+    }
+  }
 </script>
 </body>
 </html>

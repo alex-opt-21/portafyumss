@@ -21,11 +21,8 @@ class ExperienceController extends Controller
 
     public function store(ExperienceRequest $request): JsonResponse
     {
-        $data = $request->validated();
-        $data['tipo'] = $data['tipo'] === 'trabajo' ? 'laboral' : $data['tipo'];
-
         $experience = Experience::create([
-            ...$data,
+            ...$request->persistenceData(),
             'usuario_id' => $request->user()->id,
         ]);
 
@@ -35,11 +32,9 @@ class ExperienceController extends Controller
     public function update(ExperienceRequest $request, int $id): JsonResponse
     {
         $experience = Experience::forUser($request->user()->id)->findOrFail($id);
-        $data = $request->validated();
-        $data['tipo'] = ($data['tipo'] ?? null) === 'trabajo' ? 'laboral' : ($data['tipo'] ?? null);
-        $experience->update($data);
+        $experience->update($request->persistenceData());
 
-        return response()->json($experience);
+        return response()->json($experience->fresh());
     }
 
     public function destroy(Request $request, int $id): JsonResponse

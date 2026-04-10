@@ -12,13 +12,18 @@ class GoogleController extends Controller
 
     public function redirect()
     {
-        return Socialite::driver('google')->redirect();
+        return Socialite::driver('google')
+            ->stateless()
+            ->scopes(['openid', 'profile', 'email'])
+            ->redirect();
     }
 
     public function callback()
     {
         try {
-            $googleUser = Socialite::driver('google')->user();
+            $googleUser = Socialite::driver('google')
+                ->stateless()
+                ->user();
 
             $user = $this->oAuthUserService->resolveOrCreateUser(
                 'google',
@@ -30,12 +35,18 @@ class GoogleController extends Controller
 
             $token = $this->oAuthUserService->issueToken($user);
 
-            return view('google-callback', [
-                'token' => $token,
-                'user' => $user,
-            ]);
+            return response()
+                ->view('google-callback', [
+                    'token' => $token,
+                    'user' => $user,
+                ])
+                ->header('Cross-Origin-Opener-Policy', 'same-origin-allow-popups')
+                ->header('Cross-Origin-Embedder-Policy', 'unsafe-none');
         } catch (\Exception $e) {
-            return view('google-callback', ['error' => $e->getMessage()]);
+            return response()
+                ->view('google-callback', ['error' => $e->getMessage()])
+                ->header('Cross-Origin-Opener-Policy', 'same-origin-allow-popups')
+                ->header('Cross-Origin-Embedder-Policy', 'unsafe-none');
         }
     }
 }

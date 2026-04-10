@@ -21,7 +21,7 @@ class SkillController extends Controller
     public function store(SkillRequest $request): JsonResponse
     {
         $skill = Habilidad::create([
-            ...$request->validated(),
+            ...$request->persistenceData(),
             'usuario_id' => $request->user()->id,
         ]);
 
@@ -31,7 +31,7 @@ class SkillController extends Controller
     public function update(SkillRequest $request, int $id): JsonResponse
     {
         $skill = Habilidad::forUser($request->user()->id)->findOrFail($id);
-        $skill->update($request->validated());
+        $skill->update($request->persistenceData());
 
         return response()->json($skill);
     }

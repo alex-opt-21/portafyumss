@@ -19,6 +19,8 @@ class UsuarioResource extends JsonResource
             'fecha_nacimiento'   => $this->fecha_nacimiento,
             'ubicacion'          => $this->ubicacion,
             'foto_perfil'        => $this->foto_perfil,
+            'foto_portada'       => $this->foto_portada,
+            'url_cv'             => $this->url_cv,
             'perfil_completado'  => $this->perfil_completado ?? false,
         ];
     }

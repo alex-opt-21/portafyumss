@@ -13,35 +13,43 @@ class FormacionAcademicaRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $current = filter_var(
+            $this->input('actualmente', $this->input('is_current', $this->input('isCurrent'))),
+            FILTER_VALIDATE_BOOLEAN
+        );
+
         $this->merge([
-            'tipo_formacion' => $this->normalizeText($this->input('tipo_formacion', $this->input('type'))),
+            'nivel_formacion' => $this->normalizeText($this->input('nivel_formacion', $this->input('tipo_formacion', $this->input('type')))),
             'institucion' => $this->normalizeText($this->input('institucion', $this->input('institution'))),
-            'nombre_carrera' => $this->normalizeText($this->input('nombre_carrera', $this->input('careerName'))),
+            'nombre_programa' => $this->normalizeText($this->input('nombre_programa', $this->input('nombre_carrera', $this->input('careerName')))),
             'fecha_inicio' => $this->input('fecha_inicio', $this->input('startDate')),
-            'fecha_fin' => $this->input('fecha_fin', $this->input('endDate')),
+            'fecha_fin' => $current ? null : $this->input('fecha_fin', $this->input('endDate')),
+            'actualmente' => $current,
         ]);
     }
 
     public function rules(): array
     {
         return [
-            'tipo_formacion' => ['required', 'string', 'min:2', 'max:100'],
-            'institucion' => ['required', 'string', 'min:2', 'max:255'],
-            'nombre_carrera' => ['required', 'string', 'min:2', 'max:255'],
-            'fecha_inicio' => ['required', 'date'],
+            'nivel_formacion' => ['nullable', 'in:tecnico,tecnologo,licenciatura,ingenieria,maestria,doctorado,curso,diplomado,otro'],
+            'institucion' => ['required', 'string', 'min:2', 'max:200'],
+            'nombre_programa' => ['required', 'string', 'min:2', 'max:255'],
+            'fecha_inicio' => ['nullable', 'date'],
             'fecha_fin' => ['nullable', 'date', 'after_or_equal:fecha_inicio'],
+            'actualmente' => ['nullable', 'boolean'],
         ];
     }
 
     public function messages(): array
     {
         return [
-            'tipo_formacion.required' => 'El tipo de formacion es obligatorio.',
-            'institucion.required' => 'La institucion es obligatoria.',
-            'nombre_carrera.required' => 'La carrera es obligatoria.',
-            'fecha_inicio.required' => 'La fecha de inicio es obligatoria.',
             'fecha_fin.after_or_equal' => 'La fecha de fin no puede ser anterior a la fecha de inicio.',
         ];
+    }
+
+    public function persistenceData(): array
+    {
+        return \App\Models\FormacionAcademica::persistenceData($this->validated());
     }
 
     private function normalizeText(?string $value): ?string

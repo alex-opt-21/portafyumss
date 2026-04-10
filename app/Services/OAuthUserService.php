@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Usuario;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -22,19 +23,27 @@ class OAuthUserService
             ? Usuario::where('email', $normalizedEmail)->first()
             : null;
 
-        $user ??= Usuario::where('provider', $provider)
-            ->where('provider_id', $providerId)
+        $user ??= Usuario::query()
+            ->when(
+                Schema::hasColumn('usuarios', 'proveedor'),
+                fn ($query) => $query
+                    ->where('proveedor', $provider)
+                    ->where('proveedor_id', $providerId),
+                fn ($query) => $query
+                    ->where('provider', $provider)
+                    ->where('provider_id', $providerId)
+            )
             ->first();
 
         if ($user) {
             $updates = [];
 
-            if (! $user->provider) {
-                $updates['provider'] = $provider;
+            if (! $user->proveedor) {
+                $updates['proveedor'] = $provider;
             }
 
-            if (! $user->provider_id) {
-                $updates['provider_id'] = $providerId;
+            if (! $user->proveedor_id) {
+                $updates['proveedor_id'] = $providerId;
             }
 
             if ($normalizedEmail && ! $user->email) {
@@ -50,7 +59,7 @@ class OAuthUserService
             }
 
             if ($updates !== []) {
-                $user->update($updates);
+                $user->update(Usuario::persistenceData($updates));
                 $user->refresh();
             }
 
@@ -61,15 +70,15 @@ class OAuthUserService
             throw new RuntimeException('No fue posible recuperar el correo del proveedor.');
         }
 
-        return Usuario::create([
+        return Usuario::create(Usuario::persistenceData([
             'email' => $normalizedEmail,
             'nombre' => $nombre !== '' ? $nombre : 'Usuario',
             'apellido' => $apellido,
-            'provider' => $provider,
-            'provider_id' => $providerId,
+            'proveedor' => $provider,
+            'proveedor_id' => $providerId,
             'rol' => 'usuario',
             'password' => Hash::make(Str::random(24)),
-        ]);
+        ]));
     }
 
     public function issueToken(Usuario $user): string

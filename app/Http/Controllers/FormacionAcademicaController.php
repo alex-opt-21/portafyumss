@@ -13,7 +13,7 @@ class FormacionAcademicaController extends Controller
     {
         try {
             $formacion = FormacionAcademica::create([
-                ...$request->validated(),
+                ...$request->persistenceData(),
                 'usuario_id' => $request->user()->id,
             ]);
 

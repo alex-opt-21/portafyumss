@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Http\Requests\ProfileRequest;
 use App\Models\Social;
 use App\Models\Usuario;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use RuntimeException;
@@ -19,53 +20,69 @@ class ProfileService
 
     public function show(Usuario $usuario): array
     {
-        $legacyProfile = $this->getLegacyProfile($usuario->id);
-        $socials = $usuario->relationLoaded('sociales')
-            ? $usuario->sociales->keyBy('nombre_plataforma')
-            : Social::forUser($usuario->id)->get()->keyBy('nombre_plataforma');
+        return Cache::remember(
+            $this->profileCacheKey($usuario->id, 'show'),
+            now()->addSeconds(20),
+            function () use ($usuario) {
+                $legacyProfile = $this->getLegacyProfile($usuario->id);
+                $socials = $usuario->relationLoaded('sociales')
+                    ? $usuario->sociales->keyBy('plataforma')
+                    : Social::forUser($usuario->id)->get()->keyBy('plataforma');
 
-        $fotoPerfilPath = $usuario->foto_perfil ?: ($legacyProfile->foto_perfil ?? '');
-        $fotoPortadaPath = $usuario->foto_portada ?? '';
+                $fotoPerfilPath = $usuario->foto_perfil ?: ($legacyProfile->foto_perfil ?? '');
+                $fotoPortadaPath = $usuario->foto_portada ?? '';
+                $cvUrl = $usuario->url_cv ?? ($socials->firstWhere('url_cv', '!=', null)?->url_cv ?? '');
 
-        return [
-            'nombre' => $usuario->nombre ?? '',
-            'apellido' => $usuario->apellido ?? '',
-            'email' => $usuario->email ?? '',
-            'profesion' => $this->resolveProfession($usuario, $legacyProfile),
-            'biografia' => $usuario->biografia ?? '',
-            'ubicacion' => $usuario->ubicacion ?: ($legacyProfile->ubicacion ?? ''),
-            'fecha_nacimiento' => $usuario->fecha_nacimiento ?: ($legacyProfile->fecha_nacimiento ?? ''),
-            'foto_perfil' => $fotoPerfilPath,
-            'foto_perfil_url' => $this->assetUrlService->fromStoragePath($fotoPerfilPath),
-            'foto_portada' => $fotoPortadaPath,
-            'foto_portada_url' => $this->assetUrlService->fromStoragePath($fotoPortadaPath),
-            'perfil_completado' => $usuario->perfil_completado ?? 0,
-            'github' => $socials->get('github')?->url_plataforma ?? '',
-            'linkedin' => $socials->get('linkedin')?->url_plataforma ?? '',
-        ];
+                return [
+                    'nombre' => $usuario->nombre ?? '',
+                    'apellido' => $usuario->apellido ?? '',
+                    'email' => $usuario->email ?? '',
+                    'profesion' => $this->resolveProfession($usuario, $legacyProfile),
+                    'biografia' => $usuario->biografia ?? '',
+                    'ubicacion' => $usuario->ubicacion ?: ($legacyProfile->ubicacion ?? ''),
+                    'fecha_nacimiento' => $usuario->fecha_nacimiento ?: ($legacyProfile->fecha_nacimiento ?? ''),
+                    'foto_perfil' => $fotoPerfilPath,
+                    'foto_perfil_url' => $this->assetUrlService->fromStoragePath($fotoPerfilPath),
+                    'foto_portada' => $fotoPortadaPath,
+                    'foto_portada_url' => $this->assetUrlService->fromStoragePath($fotoPortadaPath),
+                    'url_cv' => $cvUrl,
+                    'perfil_completado' => $usuario->perfil_completado ?? 0,
+                    'github' => $socials->get('github')?->url_plataforma ?? $socials->get('github')?->url ?? '',
+                    'linkedin' => $socials->get('linkedin')?->url_plataforma ?? $socials->get('linkedin')?->url ?? '',
+                ];
+            }
+        );
     }
 
     public function overview(Usuario $usuario): array
     {
-        $usuario->load([
-            'habilidades' => fn ($query) => $query->orderByDesc('id'),
-            'experiences' => fn ($query) => $query->orderByDesc('fecha_inicio')->orderByDesc('id'),
-            'proyectos' => fn ($query) => $query->orderByDesc('id'),
-            'sociales' => fn ($query) => $query->orderByDesc('id'),
-            'formacionAcademica' => fn ($query) => $query->orderByDesc('fecha_inicio')->orderByDesc('id'),
-        ]);
+        return Cache::remember(
+            $this->profileCacheKey($usuario->id, 'overview'),
+            now()->addSeconds(20),
+            function () use ($usuario) {
+                $usuario->load([
+                    'habilidades' => fn ($query) => $query->orderByDesc('id'),
+                    'experiences' => fn ($query) => $query->orderByDesc('fecha_inicio')->orderByDesc('id'),
+                    'proyectos' => fn ($query) => $query->orderByDesc('id'),
+                    'sociales' => fn ($query) => $query->orderByDesc('id'),
+                    'formacionAcademica' => fn ($query) => $query->orderByDesc('fecha_inicio')->orderByDesc('id'),
+                ]);
 
-        return [
-            'profile' => $this->show($usuario),
-            'skills' => $usuario->habilidades->values(),
-            'experience' => $usuario->experiences->values(),
-            'projects' => $usuario->proyectos->values(),
-            'socials' => [
-                'cv_url' => $usuario->sociales->firstWhere('url_cv', '!=', null)?->url_cv,
-                'links' => $usuario->sociales->values(),
-            ],
-            'formacion' => $usuario->formacionAcademica->values(),
-        ];
+                $profile = $this->show($usuario);
+
+                return [
+                    'profile' => $profile,
+                    'skills' => $usuario->habilidades->values(),
+                    'experience' => $usuario->experiences->values(),
+                    'projects' => $usuario->proyectos->values(),
+                    'socials' => [
+                        'cv_url' => $profile['url_cv'],
+                        'links' => $usuario->sociales->values(),
+                    ],
+                    'formacion' => $usuario->formacionAcademica->values(),
+                ];
+            }
+        );
     }
 
     public function storeOrUpdate(ProfileRequest $request): Usuario
@@ -75,16 +92,8 @@ class ProfileService
             $datosUsuario = $this->extractGeneralProfileData($request);
             $legacyOverrides = [...$datosUsuario];
 
-            if ($request->has('profesion')) {
-                $legacyOverrides['profesion'] = trim((string) $request->input('profesion', ''));
-
-                if ($this->hasColumn('usuarios', 'profesion')) {
-                    $datosUsuario['profesion'] = $legacyOverrides['profesion'];
-                }
-            }
-
             if ($datosUsuario !== []) {
-                $usuario->update($datosUsuario);
+                $usuario->update(Usuario::persistenceData($datosUsuario));
                 $usuario->refresh();
             }
 
@@ -93,6 +102,7 @@ class ProfileService
             }
 
             $this->syncSocialLinks($request, $usuario);
+            $this->forgetProfileCache($usuario->id);
 
             return $usuario->fresh();
         });
@@ -118,9 +128,10 @@ class ProfileService
 
             $datos['perfil_completado'] = 1;
 
-            $usuario->update($datos);
+            $usuario->update(Usuario::persistenceData($datos));
             $usuario->refresh();
             $this->syncLegacyProfile($usuario, $datos);
+            $this->forgetProfileCache($usuario->id);
         });
     }
 
@@ -152,12 +163,13 @@ class ProfileService
             }
 
             if ($datosUsuario !== []) {
-                $usuario->update($datosUsuario);
+                $usuario->update(Usuario::persistenceData($datosUsuario));
                 $usuario->refresh();
                 $this->syncLegacyProfile($usuario, $datosUsuario);
             }
 
             $this->syncSocialLinks($request, $usuario);
+            $this->forgetProfileCache($usuario->id);
 
             return $usuario->fresh();
         });
@@ -167,7 +179,7 @@ class ProfileService
     {
         $data = [];
 
-        foreach (['nombre', 'apellido', 'biografia', 'ubicacion', 'fecha_nacimiento'] as $field) {
+        foreach (['nombre', 'apellido', 'profesion', 'biografia', 'ubicacion', 'fecha_nacimiento'] as $field) {
             if ($request->filled($field)) {
                 $data[$field] = $request->input($field);
             }
@@ -189,25 +201,11 @@ class ProfileService
         foreach (['github', 'linkedin'] as $red) {
             if ($request->filled($red)) {
                 Social::updateOrCreate(
-                    [
-                        'usuario_id' => $usuario->id,
-                        'nombre_plataforma' => $red,
-                    ],
-                    ['url_plataforma' => $request->input($red)]
+                    Social::platformIdentity($usuario->id, $red),
+                    Social::persistenceData(['plataforma' => $red, 'url' => $request->input($red)])
                 );
             }
         }
-    }
-
-    private function resolveProfession(Usuario $usuario, ?object $legacyProfile): string
-    {
-        $usuarioProfesion = trim((string) ($usuario->profesion ?? ''));
-
-        if ($usuarioProfesion !== '') {
-            return $usuarioProfesion;
-        }
-
-        return trim((string) ($legacyProfile->profesion ?? ''));
     }
 
     private function getLegacyProfile(int $usuarioId): ?object
@@ -260,7 +258,10 @@ class ProfileService
     private function hasTable(string $table): bool
     {
         if (! array_key_exists($table, $this->tableCache)) {
-            $this->tableCache[$table] = Schema::hasTable($table);
+            $this->tableCache[$table] = Cache::rememberForever(
+                "schema.table.{$table}",
+                static fn () => Schema::hasTable($table)
+            );
         }
 
         return $this->tableCache[$table];
@@ -271,9 +272,34 @@ class ProfileService
         $cacheKey = "{$table}.{$column}";
 
         if (! array_key_exists($cacheKey, $this->columnCache)) {
-            $this->columnCache[$cacheKey] = $this->hasTable($table) && Schema::hasColumn($table, $column);
+            $this->columnCache[$cacheKey] = Cache::rememberForever(
+                "schema.column.{$cacheKey}",
+                fn () => $this->hasTable($table) && Schema::hasColumn($table, $column)
+            );
         }
 
         return $this->columnCache[$cacheKey];
+    }
+
+    private function resolveProfession(Usuario $usuario, ?object $legacyProfile): string
+    {
+        $usuarioProfesion = trim((string) ($usuario->profesion ?? ''));
+
+        if ($usuarioProfesion !== '') {
+            return $usuarioProfesion;
+        }
+
+        return trim((string) ($legacyProfile->profesion ?? ''));
+    }
+
+    private function profileCacheKey(int $userId, string $suffix): string
+    {
+        return "profile.{$userId}.{$suffix}";
+    }
+
+    private function forgetProfileCache(int $userId): void
+    {
+        Cache::forget($this->profileCacheKey($userId, 'show'));
+        Cache::forget($this->profileCacheKey($userId, 'overview'));
     }
 }

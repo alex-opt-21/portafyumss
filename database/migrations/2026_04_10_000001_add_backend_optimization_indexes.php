@@ -9,80 +9,82 @@ return new class extends Migration
     public function up(): void
     {
         $this->addIndexes('usuarios', [
-            ['columns' => ['provider', 'provider_id'], 'name' => 'usuarios_provider_provider_id_index'],
-            ['columns' => ['nombre'], 'name' => 'usuarios_nombre_index'],
-            ['columns' => ['apellido'], 'name' => 'usuarios_apellido_index'],
-            ['columns' => ['ubicacion'], 'name' => 'usuarios_ubicacion_index'],
+            ['columns' => ['proveedor', 'proveedor_id'], 'name' => 'usuarios_proveedor_proveedor_id_index'],
+            ['columns' => ['estado'], 'name' => 'usuarios_estado_index'],
+            ['columns' => ['nombre', 'apellido'], 'name' => 'usuarios_nombre_apellido_index'],
         ]);
 
         $this->addIndexes('habilidades', [
-            ['columns' => ['usuario_id'], 'name' => 'habilidades_usuario_id_index'],
             ['columns' => ['usuario_id', 'tipo'], 'name' => 'habilidades_usuario_tipo_index'],
             ['columns' => ['nombre'], 'name' => 'habilidades_nombre_index'],
         ]);
 
-        $this->addIndexes('experience', [
-            ['columns' => ['usuario_id'], 'name' => 'experience_usuario_id_index'],
-            ['columns' => ['usuario_id', 'tipo'], 'name' => 'experience_usuario_tipo_index'],
-            ['columns' => ['company'], 'name' => 'experience_company_index'],
+        $this->addIndexes('experiencias', [
+            ['columns' => ['usuario_id'], 'name' => 'experiencias_usuario_id_index'],
+            ['columns' => ['usuario_id', 'fecha_inicio', 'fecha_fin'], 'name' => 'experiencias_usuario_fechas_index'],
+            ['columns' => ['empresa'], 'name' => 'experiencias_empresa_index'],
         ]);
 
         $this->addIndexes('proyectos', [
-            ['columns' => ['usuario_id'], 'name' => 'proyectos_usuario_id_index'],
-            ['columns' => ['estado'], 'name' => 'proyectos_estado_index'],
-            ['columns' => ['titulo'], 'name' => 'proyectos_titulo_index'],
+            ['columns' => ['usuario_id', 'estado'], 'name' => 'proyectos_usuario_estado_index'],
+            ['columns' => ['usuario_id', 'created_at'], 'name' => 'proyectos_usuario_created_at_index'],
         ]);
 
-        $this->addIndexes('social', [
-            ['columns' => ['usuario_id'], 'name' => 'social_usuario_id_index'],
-            ['columns' => ['usuario_id', 'nombre_plataforma'], 'name' => 'social_usuario_plataforma_index'],
+        $this->addIndexes('redes_sociales', [
+            ['columns' => ['usuario_id'], 'name' => 'redes_sociales_usuario_id_index'],
         ]);
 
-        $this->addIndexes('formacion_academica', [
-            ['columns' => ['usuario_id'], 'name' => 'formacion_academica_usuario_id_index'],
-            ['columns' => ['institucion'], 'name' => 'formacion_academica_institucion_index'],
-            ['columns' => ['nombre_carrera'], 'name' => 'formacion_academica_nombre_carrera_index'],
-            ['columns' => ['tipo_formacion'], 'name' => 'formacion_academica_tipo_formacion_index'],
+        $this->addIndexes('formaciones_academicas', [
+            ['columns' => ['usuario_id'], 'name' => 'formaciones_usuario_id_index'],
+            ['columns' => ['usuario_id', 'fecha_inicio', 'fecha_fin'], 'name' => 'formaciones_usuario_fechas_index'],
+            ['columns' => ['institucion'], 'name' => 'formaciones_institucion_index'],
+        ]);
+
+        $this->addIndexes('historial_cambios', [
+            ['columns' => ['usuario_id'], 'name' => 'historial_usuario_index'],
+            ['columns' => ['tabla_modificada', 'registro_id'], 'name' => 'historial_tabla_registro_index'],
+            ['columns' => ['usuario_id', 'created_at'], 'name' => 'historial_usuario_fecha_index'],
         ]);
     }
 
     public function down(): void
     {
         $this->dropIndexes('usuarios', [
-            'usuarios_provider_provider_id_index',
-            'usuarios_nombre_index',
-            'usuarios_apellido_index',
-            'usuarios_ubicacion_index',
+            'usuarios_proveedor_proveedor_id_index',
+            'usuarios_estado_index',
+            'usuarios_nombre_apellido_index',
         ]);
 
         $this->dropIndexes('habilidades', [
-            'habilidades_usuario_id_index',
             'habilidades_usuario_tipo_index',
             'habilidades_nombre_index',
         ]);
 
-        $this->dropIndexes('experience', [
-            'experience_usuario_id_index',
-            'experience_usuario_tipo_index',
-            'experience_company_index',
+        $this->dropIndexes('experiencias', [
+            'experiencias_usuario_id_index',
+            'experiencias_usuario_fechas_index',
+            'experiencias_empresa_index',
         ]);
 
         $this->dropIndexes('proyectos', [
-            'proyectos_usuario_id_index',
-            'proyectos_estado_index',
-            'proyectos_titulo_index',
+            'proyectos_usuario_estado_index',
+            'proyectos_usuario_created_at_index',
         ]);
 
-        $this->dropIndexes('social', [
-            'social_usuario_id_index',
-            'social_usuario_plataforma_index',
+        $this->dropIndexes('redes_sociales', [
+            'redes_sociales_usuario_id_index',
         ]);
 
-        $this->dropIndexes('formacion_academica', [
-            'formacion_academica_usuario_id_index',
-            'formacion_academica_institucion_index',
-            'formacion_academica_nombre_carrera_index',
-            'formacion_academica_tipo_formacion_index',
+        $this->dropIndexes('formaciones_academicas', [
+            'formaciones_usuario_id_index',
+            'formaciones_usuario_fechas_index',
+            'formaciones_institucion_index',
+        ]);
+
+        $this->dropIndexes('historial_cambios', [
+            'historial_usuario_index',
+            'historial_tabla_registro_index',
+            'historial_usuario_fecha_index',
         ]);
     }
 
@@ -93,7 +95,7 @@ return new class extends Migration
         }
 
         foreach ($indexes as $index) {
-            if (! $this->tableHasColumns($table, $index['columns']) || Schema::hasIndex($table, $index['name'])) {
+            if (! $this->tableHasColumns($table, $index['columns'])) {
                 continue;
             }
 
@@ -110,10 +112,6 @@ return new class extends Migration
         }
 
         foreach ($indexes as $indexName) {
-            if (! Schema::hasIndex($table, $indexName)) {
-                continue;
-            }
-
             Schema::table($table, function (Blueprint $blueprint) use ($indexName) {
                 $blueprint->dropIndex($indexName);
             });

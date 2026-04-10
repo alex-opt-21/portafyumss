@@ -25,12 +25,12 @@ class AuthService
 
     public function register(array $data): array
     {
-        $usuario = Usuario::create([
+        $usuario = Usuario::create(Usuario::persistenceData([
             'nombre' => $data['nombre'],
             'apellido' => $data['apellido'],
             'email' => $data['email'],
             'password' => Hash::make($data['password']),
-        ]);
+        ]));
 
         $token = $usuario->createToken('auth_token')->plainTextToken;
 

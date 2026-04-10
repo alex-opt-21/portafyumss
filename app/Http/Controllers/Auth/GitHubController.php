@@ -12,13 +12,18 @@ class GitHubController extends Controller
 
     public function redirect()
     {
-        return Socialite::driver('github')->redirect();
+        return Socialite::driver('github')
+            ->stateless()
+            ->scopes(['read:user', 'user:email'])
+            ->redirect();
     }
 
     public function callback()
     {
         try {
-            $githubUser = Socialite::driver('github')->user();
+            $githubUser = Socialite::driver('github')
+                ->stateless()
+                ->user();
 
             $user = $this->oAuthUserService->resolveOrCreateUser(
                 'github',
@@ -29,12 +34,18 @@ class GitHubController extends Controller
 
             $token = $this->oAuthUserService->issueToken($user);
 
-            return view('github-callback', [
-                'token' => $token,
-                'user' => $user,
-            ]);
+            return response()
+                ->view('github-callback', [
+                    'token' => $token,
+                    'user' => $user,
+                ])
+                ->header('Cross-Origin-Opener-Policy', 'same-origin-allow-popups')
+                ->header('Cross-Origin-Embedder-Policy', 'unsafe-none');
         } catch (\Exception $e) {
-            return view('github-callback', ['error' => $e->getMessage()]);
+            return response()
+                ->view('github-callback', ['error' => $e->getMessage()])
+                ->header('Cross-Origin-Opener-Policy', 'same-origin-allow-popups')
+                ->header('Cross-Origin-Embedder-Policy', 'unsafe-none');
         }
     }
 }
