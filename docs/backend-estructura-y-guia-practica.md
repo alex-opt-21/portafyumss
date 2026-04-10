@@ -641,4 +641,3 @@ Regla de oro:
 * No se hardcodearon URLs o secretos
 * Hay al menos una prueba o una razon clara de por que aun no se agrego
 * Se actualizo `docs/` si el cambio modifica una convencion importante
-
